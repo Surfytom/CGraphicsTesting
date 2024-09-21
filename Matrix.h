@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <stdbool.h>
 
 #define M_PI 3.14159265358979323846
 
@@ -12,9 +13,13 @@ typedef struct Matrix {
 
 Matrix* InitMatrix(int rows, int cols);
 void FreeMatrix(Matrix* matrix);
+Matrix* CopyMatrix(Matrix* matrixToCopy);
 
+Matrix* MultiplyMatrix(Matrix* a, Matrix* b, bool inPlace);
+Matrix* SubtractMatrix(Matrix* a, Matrix* b);
+float DotProduct(Matrix* a, Matrix* b);
+Matrix* CrossProduct(Matrix* a, Matrix* b, bool normalise);
 
-Matrix* MultiplyMatrix(Matrix* a, Matrix* b);
 void RandomFillMatrix(Matrix* matrix);
 
 Matrix* ProjectionMatrix(int screenHeight, int screenWidth, float fov, float fNear, float fFar);

@@ -21,7 +21,13 @@
 // Implement clipping fixes
 // Implement loading of .obj files
 
+Mesh* MeshFromObjFile(char* pathToObjFile);
+
 int main() {
+
+    MeshFromObjFile("./ObjFiles/VideoShip.obj");
+
+    return 0;
 
     // Mesh* triangle = InitTriangle();
     Mesh* triangle = InitCube();
@@ -30,11 +36,8 @@ int main() {
     printf("Aspect Ratio: %.5f", aspectRatio);
 
     SetScreenWidthHeight(SCREENWIDTH, SCREENHEIGHT);
-
-    Matrix* projMatrix = ProjectionMatrix(SCREENHEIGHT, SCREENWIDTH, 90.0f, 0.1f, 1000.0f);
-    PrintMatrix(projMatrix);
-
-    SetProjectionMatrix(projMatrix);
+    SetProjectionMatrix(ProjectionMatrix(SCREENHEIGHT, SCREENWIDTH, 90.0f, 0.1f, 1000.0f));
+    SetCameraPosition(InitPoint3D(0.0, 0.0, -1.0));
 
     //The window we'll be rendering to
     SDL_Window* window = NULL;
@@ -74,10 +77,21 @@ int main() {
     clock_t start;
     start = clock();
     double timeElapsed = 0.0f;
+
+    int frameCount = 0;
+    int secondCount = 0;
     
     while (quit == false) {
+
         timeElapsed = ((double)(clock() - start)) / CLOCKS_PER_SEC;
-        printf("\nTime Elapsed: %f", timeElapsed);
+
+        if (timeElapsed / secondCount > 1.0) {
+            printf("\nTime Elapsed: %.2f", timeElapsed);
+            printf(" Frames Per Second: %d", frameCount);
+            secondCount++;
+            frameCount = 0;
+        }
+
         while (SDL_PollEvent(&e)) { 
             if (e.type == SDL_QUIT) {
                 quit = true;
@@ -88,11 +102,13 @@ int main() {
         
         SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
         
-        DrawMesh(triangle, renderer, true, timeElapsed);
+        // DrawMesh(triangle, renderer, true, timeElapsed);
         
         SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
 
         SDL_RenderPresent(renderer);
+
+        frameCount++;
     }
     
     //Destroy window
@@ -102,9 +118,50 @@ int main() {
     SDL_Quit();
 
     FreeMatrix(gProjectionMatrix);
+    FreeMatrix(gCamera);
     FreeMesh(triangle);
 
     _CrtDumpMemoryLeaks();
 
 	return 0;
+}
+
+Mesh* MeshFromObjFile(char* pathToObjFile) {
+
+    FILE* fptr = fopen(pathToObjFile, "rb");
+
+    char myString[100];
+
+    while (fgets(myString, 100, fptr)) {
+        printf("\n%s", myString);
+
+        if (myString[0] == 'v' && myString[1] == ' ') {
+
+            int ptr = 0;
+            float vertex[3] = {0.0};
+            char tmpChar[10];
+            for (int i = 1; i < 50; i++) {
+                if (myString[i] == ' ') {
+                    int j = 0;
+                    while (myString[(i+1)+j] != ' ' && myString[(i + 1) + j] != '\n') {
+                        tmpChar[j] = myString[(i+1) + j];
+                        j++;
+                    }
+                    tmpChar[j] = '\0';
+
+                    vertex[ptr] = atof(tmpChar);
+                    ptr++;
+                    i++;
+                }
+            }
+
+            InitPoint3D(vertex[0], vertex[1], vertex[2]);
+        }
+
+        if (myString[0] == 'f') {
+            printf("Found Face!");
+        }
+    }
+
+    fclose(fptr);
 }

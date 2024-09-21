@@ -28,6 +28,19 @@ Point3D* InitPoint3D(float x, float y, float z) {
 	return point3D;
 }
 
+Point3D* CopyPoint3D(Point3D* pointToCopy) {
+	Point3D* point = malloc(sizeof(Point3D));
+
+	if (point == NULL) {
+		return NULL;
+	}
+	
+	point->xyz = CopyMatrix(pointToCopy->xyz);
+
+	return point;
+}
+
+
 /*
 Shape* InitShape(Matrix* vertices) {
 
@@ -58,6 +71,28 @@ Shape* InitShape(Point3D** points, int numOfPoints) {
 
 	shape->vertices = points;
 	shape->numOfVertices = numOfPoints;
+
+	return shape;
+}
+
+Shape* CopyShape(Shape* shapeToCopy) {
+	Shape* shape = malloc(sizeof(Shape));
+
+	if (shape == NULL) {
+		return NULL;
+	}
+
+	shape->vertices = malloc(sizeof(Point3D*) * shapeToCopy->numOfVertices);
+
+	if (shape->vertices == NULL) {
+		free(shape);
+		return NULL;
+	}
+
+	for (int i = 0; i < shapeToCopy->numOfVertices; i++) {
+		shape->vertices[i] = CopyPoint3D(shapeToCopy->vertices[i]);
+	}
+	shape->numOfVertices = shapeToCopy->numOfVertices;
 
 	return shape;
 }
@@ -95,6 +130,28 @@ Mesh* InitMesh(Shape** triangles, int numOfTriangles) {
 
 	mesh->triangles = triangles;
 	mesh->numOfTriangles = numOfTriangles;
+
+	return mesh;
+}
+
+Mesh* CopyMesh(Mesh* meshToCopy) {
+	Mesh* mesh = malloc(sizeof(Mesh));
+
+	if (mesh == NULL) {
+		return NULL;
+	}
+
+	mesh->triangles = malloc(sizeof(Shape*) * meshToCopy->numOfTriangles);
+
+	if (mesh->triangles == NULL) {
+		FreeMesh(mesh);
+		return NULL;
+	}
+	
+	for (int i = 0; i < meshToCopy->numOfTriangles; i++) {
+		mesh->triangles[i] = CopyShape(meshToCopy->triangles[i]);
+	}
+	mesh->numOfTriangles = meshToCopy->numOfTriangles;
 
 	return mesh;
 }
@@ -303,79 +360,62 @@ void SetProjectionMatrix(Matrix* projectionMatrix) {
 	gProjectionMatrix = projectionMatrix;
 }
 
+void SetCameraPosition(Point3D* xyz) {
+	gCamera = xyz->xyz;
+	free(xyz);
+}
+
 void SetScreenWidthHeight(int screenWidth, int screenHeight) {
 	gScreenWidth = screenWidth;
 	gScreenHeight = screenHeight;
 }
 
-Matrix* ProjectVertices(Matrix* vertices, Matrix* projMatrix) {
-	Matrix* projVertices = MultiplyMatrix(vertices, projMatrix);
+void ProjectVertices(Mesh* mesh, Matrix* projMatrix) {
+	for (int i = 0; i < mesh->numOfTriangles; i++) {
+		for (int j = 0; j < mesh->triangles[0]->numOfVertices; j++) {
 
-	if (projVertices == NULL) {
-		return NULL;
-	}
+			MultiplyMatrix(mesh->triangles[i]->vertices[j]->xyz, projMatrix, true);
 
-	for (int i = 0; i < projVertices->shape[0]; i++) {
-		for (int j = 0; j < projVertices->shape[1] - 1; j++) {
-			if (projVertices->nums[i][3] != 0.0f) {
-				projVertices->nums[i][j] /= projVertices->nums[i][3];
+			if (mesh->triangles[i]->vertices[j]->xyz->nums[0][3] != 0.0f) {
+				mesh->triangles[i]->vertices[j]->xyz->nums[0][0] /= mesh->triangles[i]->vertices[j]->xyz->nums[0][3];
+				mesh->triangles[i]->vertices[j]->xyz->nums[0][1] /= mesh->triangles[i]->vertices[j]->xyz->nums[0][3];
+				mesh->triangles[i]->vertices[j]->xyz->nums[0][2] /= mesh->triangles[i]->vertices[j]->xyz->nums[0][3];
 			}
 		}
 	}
-
-	return projVertices;
 }
 
-Matrix* TranslateVertices(Matrix* vertices, float offset) {
-	Matrix* translatedVertices = CopyMatrix(vertices);
-
-	if (translatedVertices == NULL) {
-		return NULL;
+void TranslateVertices(Mesh* mesh, float offset) {
+	for (int i = 0; i < mesh->numOfTriangles; i++) {
+		for (int j = 0; j < mesh->triangles[0]->numOfVertices; j++) {
+			mesh->triangles[i]->vertices[j]->xyz->nums[0][2] += offset;
+		}
 	}
-
-	for (int i = 0; i < translatedVertices->shape[0]; i++) {
-		translatedVertices->nums[i][2] += offset;
-	}
-
-	return translatedVertices;
 }
 
-Matrix* ScaleVertices(Matrix* vertices) {
-	Matrix* scaledVertices = CopyMatrix(vertices);
+void ScaleVertices(Mesh* mesh) {
+	for (int i = 0; i < mesh->numOfTriangles; i++) {
+		for (int j = 0; j < mesh->triangles[0]->numOfVertices; j++) {
+			mesh->triangles[i]->vertices[j]->xyz->nums[0][0] += 1.0f;
+			mesh->triangles[i]->vertices[j]->xyz->nums[0][1] += 1.0f;
 
-	if (scaledVertices == NULL) {
-		return NULL;
+			mesh->triangles[i]->vertices[j]->xyz->nums[0][0] *= 0.5f * (float)gScreenWidth;
+			mesh->triangles[i]->vertices[j]->xyz->nums[0][1] *= 0.5f * (float)gScreenHeight;
+		}
 	}
-
-	for (int i = 0; i < scaledVertices->shape[0]; i++) {
-		scaledVertices->nums[i][0] += 1.0f;
-		scaledVertices->nums[i][1] += 1.0f;
-
-		scaledVertices->nums[i][0] *= 0.5f * (float)gScreenWidth;
-		scaledVertices->nums[i][1] *= 0.5f * (float)gScreenHeight;
-	}
-
-	return scaledVertices;
 }
 
-Matrix* RotateVertices(Matrix* vertices, float theta, double elapsedTime, float speed) {
-	Matrix* rotatedVertices = CopyMatrix(vertices);
-
-	if (rotatedVertices == NULL) {
-		return NULL;
-	}
+void RotateVertices(Mesh* mesh, float theta, double elapsedTime, float speed) {
 
 	Matrix* rotateX = InitMatrix(4, 4);
 
 	if (rotateX == NULL) {
-		FreeMatrix(rotatedVertices);
 		return NULL;
 	}
 
 	Matrix* rotateZ = InitMatrix(4, 4);
 
 	if (rotateZ == NULL) {
-		FreeMatrix(rotatedVertices);
 		FreeMatrix(rotateX);
 		return NULL;
 	}
@@ -383,7 +423,6 @@ Matrix* RotateVertices(Matrix* vertices, float theta, double elapsedTime, float 
 	Matrix* rotateY = InitMatrix(4, 4);
 
 	if (rotateY == NULL) {
-		FreeMatrix(rotatedVertices);
 		FreeMatrix(rotateX);
 		FreeMatrix(rotateZ);
 		return NULL;
@@ -412,49 +451,46 @@ Matrix* RotateVertices(Matrix* vertices, float theta, double elapsedTime, float 
 	rotateZ->nums[2][2] = 1.0f;
 	rotateZ->nums[3][3] = 1.0f;
 
-	Matrix* rotatedX = MultiplyMatrix(rotatedVertices, rotateX);
-
-	if (rotatedX == NULL) {
-		FreeMatrix(rotateX);
-		FreeMatrix(rotateY);
-		FreeMatrix(rotateZ);
-		FreeMatrix(rotatedVertices);
-		return NULL;
-	}
-
-	Matrix* rotatedY = MultiplyMatrix(rotatedX, rotateY);
-
-	
-	if (rotatedY == NULL) {
-		FreeMatrix(rotateX);
-		FreeMatrix(rotateZ);
-		FreeMatrix(rotateY);
-		FreeMatrix(rotatedX);
-		FreeMatrix(rotatedVertices);
-		return NULL;
-	}
-	
-
-	Matrix* rotatedZ = MultiplyMatrix(rotatedY, rotateZ);
-	
-	if (rotatedZ == NULL) {
-		FreeMatrix(rotateX);
-		FreeMatrix(rotateZ);
-		FreeMatrix(rotateY);
-		FreeMatrix(rotatedX);
-		FreeMatrix(rotatedY);
-		FreeMatrix(rotatedVertices);
-		return NULL;
+	for (int i = 0; i < mesh->numOfTriangles; i++) {
+		for (int j = 0; j < mesh->triangles[0]->numOfVertices; j++) {
+			MultiplyMatrix(mesh->triangles[i]->vertices[j]->xyz, rotateX, true);
+			MultiplyMatrix(mesh->triangles[i]->vertices[j]->xyz, rotateY, true);
+			MultiplyMatrix(mesh->triangles[i]->vertices[j]->xyz, rotateZ, true);
+		}
 	}
 
 	FreeMatrix(rotateX);
 	FreeMatrix(rotateY);
 	FreeMatrix(rotateZ);
-	FreeMatrix(rotatedX);
-	FreeMatrix(rotatedY);
-	FreeMatrix(rotatedVertices);
+}
 
-	return rotatedZ;
+Matrix* Normal(Shape* triangle) {
+
+	Matrix* line1 = SubtractMatrix(triangle->vertices[1]->xyz, triangle->vertices[0]->xyz);
+
+	if (line1 == NULL) {
+		return NULL;
+	}
+
+	Matrix* line2 = SubtractMatrix(triangle->vertices[2]->xyz, triangle->vertices[0]->xyz);
+
+	if (line2 == NULL) {
+		FreeMatrix(line1);
+		return NULL;
+	}
+	
+	Matrix* normal = CrossProduct(line1, line2, true);
+
+	if (normal == NULL) {
+		FreeMatrix(line1);
+		FreeMatrix(line2);
+		return NULL;
+	}
+
+	FreeMatrix(line1);
+	FreeMatrix(line2);
+
+	return normal;
 }
 
 int* Interpolate(int x1, int y1, int x2, int y2) {
@@ -591,27 +627,17 @@ void DrawFilledTriangle(SDL_Renderer* renderer, int x1, int y1, int x2, int y2, 
 
 void DrawMesh(Mesh* mesh, SDL_Renderer* renderer, bool rotate, double elapsedTime) {
 
-#ifdef DEBUG
-	printf("\nVertices before projection: ");
-	PrintMatrix(shape->vertices);
-#endif // DEBUG
+	// printf("\n\nOriginal Mesh:");
+	// PrintMesh(mesh);
 
-	Matrix* copiedVertices = InitMatrix(mesh->numOfTriangles * mesh->triangles[0]->numOfVertices, mesh->triangles[0]->vertices[0]->xyz->shape[1]);
+	Mesh* copyOfMesh = CopyMesh(mesh);
 
-	if (copiedVertices == NULL) {
+	if (copyOfMesh == NULL) {
 		return NULL;
 	}
 
-	for (int i = 0; i < mesh->numOfTriangles; i++) {
-		for (int j = 0; j < mesh->triangles[0]->numOfVertices; j++) {
-			for (int t = 0; t < mesh->triangles[0]->vertices[0]->xyz->shape[1]; t++) {
-#ifdef DEBUG
-				printf("\ni: %d, j: %d, t: %d, p: %d", i, j, t, (i * mesh->numOfTriangles) + j);
-#endif // DEBUG
-				copiedVertices->nums[(i*mesh->triangles[0]->numOfVertices) + j][t] = mesh->triangles[i]->vertices[j]->xyz->nums[0][t];
-			}
-		}
-	}
+	// printf("\n\nCopy Of Mesh:");
+	// PrintMesh(copyOfMesh);
 
 	if (gProjectionMatrix == NULL) {
 		printf("\nProjection Matrix not set.");
@@ -623,76 +649,66 @@ void DrawMesh(Mesh* mesh, SDL_Renderer* renderer, bool rotate, double elapsedTim
 		speed = 0;
 	}
 	
-	Matrix* rotatedVertices = RotateVertices(copiedVertices, 0.0f, elapsedTime, speed);
+	RotateVertices(copyOfMesh, 0.0f, elapsedTime, speed);
+	TranslateVertices(copyOfMesh, 3.5f);
 
-	if (rotatedVertices == NULL) {
-		printf("\nDraw Failed Rotated Vertices is NULL");
-		FreeMatrix(copiedVertices);
-		return;
-	}
+	// Check if normal is in view
+	for (int i = 0; i < copyOfMesh->numOfTriangles; i++) {
+		Matrix* normal = Normal(copyOfMesh->triangles[i]);
 
-	Matrix* translatedVertices = TranslateVertices(rotatedVertices, 5.0f);
+		if (normal == NULL) {
+			continue;
+		}
 
-	if (translatedVertices == NULL) {
-		printf("\nDraw Failed Translated Vertices is NULL");
-		FreeMatrix(rotatedVertices);
-		FreeMatrix(copiedVertices);
-		return;
+		Matrix* line = SubtractMatrix(copyOfMesh->triangles[i]->vertices[0]->xyz, gCamera);
+
+		if (normal == NULL) {
+			FreeMatrix(normal);
+			break;
+		}
+
+		float dotProduct = DotProduct(line, normal);
+
+		if (dotProduct < 0.0f) {
+			copyOfMesh->triangles[i]->draw = true;
+		}
+		else {
+			copyOfMesh->triangles[i]->draw = false;
+		}
+
+		FreeMatrix(normal);
+		FreeMatrix(line);
 	}
 
 	// Project Shapes Points
-	Matrix* projVertices = ProjectVertices(translatedVertices, gProjectionMatrix);
-
-	if (projVertices == NULL) {
-		printf("\nDraw Failed Proj Vertices is NULL");
-		FreeMatrix(rotatedVertices);
-		FreeMatrix(translatedVertices);
-		FreeMatrix(copiedVertices);
-		return;
-	}
-
-#ifdef DEBUG
-	printf("\nProjected Vertices before being scaled:");
-	PrintMatrix(projVertices);
-#endif // DEBUG
+	ProjectVertices(copyOfMesh, gProjectionMatrix);
 
 	// Scale Shapes Points
-	Matrix* scaledVertices = ScaleVertices(projVertices);
+	ScaleVertices(copyOfMesh);
 
-	if (scaledVertices == NULL) {
-		printf("\nDraw Failed Scaled Vertices is NULL");
-		FreeMatrix(projVertices);
-		FreeMatrix(rotatedVertices);
-		FreeMatrix(translatedVertices);
-		FreeMatrix(copiedVertices);
-		return;
+	for (int i = 0; i < copyOfMesh->numOfTriangles; i++) {
+		if (copyOfMesh->triangles[i]->draw) {
+			SDL_SetRenderDrawColor(renderer, 0x00, 0x00, 0x00, 0x00);
+			SDL_RenderDrawLine(renderer, (int)copyOfMesh->triangles[i]->vertices[0]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[0]->xyz->nums[0][1], (int)copyOfMesh->triangles[i]->vertices[1]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[1]->xyz->nums[0][1]);
+			SDL_RenderDrawLine(renderer, (int)copyOfMesh->triangles[i]->vertices[1]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[1]->xyz->nums[0][1], (int)copyOfMesh->triangles[i]->vertices[2]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[2]->xyz->nums[0][1]);
+			SDL_RenderDrawLine(renderer, (int)copyOfMesh->triangles[i]->vertices[2]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[2]->xyz->nums[0][1], (int)copyOfMesh->triangles[i]->vertices[0]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[0]->xyz->nums[0][1]);
+			
+			SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
+			DrawFilledTriangle(renderer, (int)copyOfMesh->triangles[i]->vertices[0]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[0]->xyz->nums[0][1], (int)copyOfMesh->triangles[i]->vertices[1]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[1]->xyz->nums[0][1], (int)copyOfMesh->triangles[i]->vertices[2]->xyz->nums[0][0], (int)copyOfMesh->triangles[i]->vertices[2]->xyz->nums[0][1]);
+		}
 	}
 
-#ifdef DEBUG
-	printf("\nScaled Vertices being rendered: ");
-	PrintMatrix(scaledVertices);
-#endif // DEBUG
-	
-	SDL_SetRenderDrawColor(renderer, 0xFF, 0x00, 0x00, 0xFF);
-	for (int i = 0; i < scaledVertices->shape[0]; i++) {
-		SDL_RenderDrawPoint(renderer, (int)scaledVertices->nums[i][0], (int)scaledVertices->nums[i][1]);
-	}
+	FreeMesh(copyOfMesh);
+}
 
-	SDL_SetRenderDrawColor(renderer, 0xFF, 0xFF, 0xFF, 0xFF);
-	for (int i = 0; i < scaledVertices->shape[0]; i+=3) {
-		/*
-		SDL_RenderDrawLine(renderer, (int)scaledVertices->nums[i][0], (int)scaledVertices->nums[i][1], (int)scaledVertices->nums[i+1][0], (int)scaledVertices->nums[i+1][1]);
-		SDL_RenderDrawLine(renderer, (int)scaledVertices->nums[i+1][0], (int)scaledVertices->nums[i+1][1], (int)scaledVertices->nums[i+2][0], (int)scaledVertices->nums[i+2][1]);
-		SDL_RenderDrawLine(renderer, (int)scaledVertices->nums[i+2][0], (int)scaledVertices->nums[i+2][1], (int)scaledVertices->nums[i][0], (int)scaledVertices->nums[i][1]);
-		*/
-		DrawFilledTriangle(renderer, (int)scaledVertices->nums[i][0], (int)scaledVertices->nums[i][1], (int)scaledVertices->nums[i+1][0], (int)scaledVertices->nums[i+1][1], (int)scaledVertices->nums[i+2][0], (int)scaledVertices->nums[i+2][1]);
+void PrintMesh(Mesh* mesh) {
+	for (int i = 0; i < mesh->numOfTriangles; i++) {
+		printf("\nTriangle %d", i);
+		for (int j = 0; j < mesh->triangles[0]->numOfVertices; j++) {
+			printf("\nVertex %d", j);
+			PrintMatrix(mesh->triangles[i]->vertices[j]->xyz);
+		}
 	}
-
-	FreeMatrix(projVertices);
-	FreeMatrix(scaledVertices);
-	FreeMatrix(rotatedVertices);
-	FreeMatrix(copiedVertices);
-	FreeMatrix(translatedVertices);
 }
 
 void FreePoint3D(Point3D* point) {
