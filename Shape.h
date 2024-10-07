@@ -27,8 +27,9 @@ int gScreenWidth;
 int gScreenHeight;
 
 Point3D* InitPoint3D(float x, float y, float z);
+void InitPoint3DNoMalloc(Point3D* pointPtr, float x, float y, float z);
 Shape* InitShape(Point3D** points, int numOfPoints);
-Mesh* InitMesh(Shape** triangles);
+Mesh* InitMesh(Shape** triangles, int numOfTriangles);
 
 Point3D* CopyPoint3D(Point3D* pointToCopy);
 Shape* CopyShape(Shape* shapeToCopy);
@@ -44,7 +45,7 @@ void SetCameraPosition(Point3D* xyz);
 void ProjectVertices(Mesh* mesh, Matrix* projMatrix);
 void ScaleVertices(Mesh* mesh);
 void RotateVertices(Mesh* mesh, float theta, double elapsedTime, float speed);
-void TranslateVertices(Mesh* mesh);
+void TranslateVertices(Mesh* mesh, float offset);
 
 int* Interpolate(int x1, int y1, int x2, int y2);
 

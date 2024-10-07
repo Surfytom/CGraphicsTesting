@@ -40,6 +40,21 @@ Point3D* CopyPoint3D(Point3D* pointToCopy) {
 	return point;
 }
 
+void InitPoint3DNoMalloc(Point3D* pointPtr, float x, float y, float z) {
+	Matrix* pointMatrix = InitMatrix(1, 4);
+
+	if (pointMatrix == NULL) {
+		return NULL;
+	}
+
+	pointMatrix->nums[0][0] = x;
+	pointMatrix->nums[0][1] = y;
+	pointMatrix->nums[0][2] = z;
+	pointMatrix->nums[0][3] = z;
+
+	pointPtr->xyz = pointMatrix;
+}
+
 
 /*
 Shape* InitShape(Matrix* vertices) {
@@ -650,7 +665,7 @@ void DrawMesh(Mesh* mesh, SDL_Renderer* renderer, bool rotate, double elapsedTim
 	}
 	
 	RotateVertices(copyOfMesh, 0.0f, elapsedTime, speed);
-	TranslateVertices(copyOfMesh, 3.5f);
+	TranslateVertices(copyOfMesh, 10.0f);
 
 	// Check if normal is in view
 	for (int i = 0; i < copyOfMesh->numOfTriangles; i++) {

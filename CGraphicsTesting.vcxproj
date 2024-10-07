@@ -136,10 +136,12 @@
     <ClCompile Include="main.c" />
     <ClCompile Include="Matrix.c" />
     <ClCompile Include="Shape.c" />
+    <ClCompile Include="Utils\Vector\vector.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Matrix.h" />
     <ClInclude Include="Shape.h" />
+    <ClInclude Include="Utils\Vector\vector.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
